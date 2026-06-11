@@ -1,24 +1,48 @@
-import { useState } from 'react'
-import { Link, createFileRoute, useParams } from '@tanstack/react-router'
+import { useState, useCallback } from 'react'
+import { createFileRoute, useParams } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getCoin, getChart } from '@/lib/api'
-import { formatZar, formatPercent, formatMarketCap, cn } from '@/lib/utils'
+import { formatZar, formatPercent, formatMarketCap } from '@/lib/utils'
 import { PriceChart } from '@/components/PriceChart'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Star } from 'lucide-react'
 
 export const Route = createFileRoute('/coin/$id')({
   component: CoinDetail,
 })
 
-const DAYS_OPTIONS = [
+const DAYS = [
   { label: '1D', days: 1 },
   { label: '7D', days: 7 },
   { label: '30D', days: 30 },
   { label: '1Y', days: 365 },
 ] as const
 
+function getWatchlist(): string[] {
+  try {
+    const raw = localStorage.getItem('cryptracker:watchlist')
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+function toggleWatchlist(id: string): string[] {
+  const current = getWatchlist()
+  const next = current.includes(id) ? current.filter((c) => c !== id) : [...current, id]
+  localStorage.setItem('cryptracker:watchlist', JSON.stringify(next))
+  return next
+}
+
 function CoinDetail() {
   const { id } = useParams({ from: '/coin/$id' })
-  const [days, setDays] = useState(7)
+  const [days, setDays] = useState('7')
+  const [showFullDesc, setShowFullDesc] = useState(false)
+  const [watched, setWatched] = useState(() => getWatchlist().includes(id))
 
   const { data: coin, isLoading } = useQuery({
     queryKey: ['coin', id],
@@ -28,124 +52,149 @@ function CoinDetail() {
 
   const { data: chart, isLoading: chartLoading } = useQuery({
     queryKey: ['chart', id, days],
-    queryFn: () => getChart(id, days),
+    queryFn: () => getChart(id, Number(days)),
     staleTime: 5 * 60_000,
   })
 
+  const handleWatchToggle = useCallback(() => {
+    toggleWatchlist(id)
+    setWatched((prev) => !prev)
+  }, [id])
+
   if (isLoading) {
     return (
-      <div className='p-4 max-w-lg mx-auto space-y-4'>
-        <div className='h-6 w-24 bg-slate-100 dark:bg-slate-800 rounded animate-pulse' />
-        <div className='h-8 w-48 bg-slate-100 dark:bg-slate-800 rounded animate-pulse' />
-        <div className='h-64 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse' />
+      <div className='space-y-4 p-4'>
+        <Skeleton className='h-10 w-10 rounded-full' />
+        <Skeleton className='h-8 w-48 rounded' />
+        <Skeleton className='h-64 rounded-lg' />
       </div>
     )
   }
 
   if (!coin) {
     return (
-      <div className='p-4 max-w-lg mx-auto'>
-        <Link to='/' className='text-sm text-cyan-600 hover:underline'>&larr; Back</Link>
-        <p className='mt-4 text-slate-500'>Coin not found</p>
+      <div className='p-4'>
+        <p className='text-muted-foreground'>Coin not found</p>
       </div>
     )
   }
 
   const price = coin.market_data.current_price.zar
   const change24h = coin.market_data.price_change_percentage_24h
+  const isUp = change24h !== null && change24h >= 0
   const ath = coin.market_data.ath.zar
   const athDate = coin.market_data.ath_date.zar
 
   return (
-    <div className='p-4 max-w-lg mx-auto space-y-4'>
-      <Link to='/' className='text-sm text-cyan-600 hover:underline inline-block'>
-        &larr; Home
-      </Link>
-
+    <div className='space-y-4 pb-6'>
       {/* Header */}
-      <div className='flex items-center gap-3'>
-        <img src={coin.image.large} alt='' className='w-10 h-10 rounded-full' />
+      <div className='flex items-center gap-3 px-4 pt-4'>
+        <img src={coin.image.large} alt='' className='size-10 rounded-full' />
         <div className='flex-1'>
           <div className='flex items-center gap-2'>
-            <h1 className='text-xl font-bold'>{coin.name}</h1>
-            <span className='text-sm text-slate-400 uppercase'>{coin.symbol}</span>
+            <h1 className='text-base font-semibold'>{coin.name}</h1>
+            <span className='text-xs text-muted-foreground uppercase'>{coin.symbol}</span>
           </div>
-          <div className='flex items-center gap-2'>
-            <span className='text-2xl font-bold'>{formatZar(price)}</span>
-            <span
-              className={cn(
-                'text-sm font-medium',
-                (change24h ?? 0) >= 0 ? 'text-green-500' : 'text-red-500',
-              )}
-            >
-              {formatPercent(change24h)}
+          <div className='flex items-center gap-2 mt-0.5'>
+            <span className='text-3xl font-semibold tabular-nums'>{formatZar(price)}</span>
+            <span className={`text-sm font-medium tabular-nums ${isUp ? 'text-gain' : 'text-loss'}`}>
+              {change24h !== null ? (
+                <>{isUp ? '▲' : '▼'} {formatPercent(change24h)}</>
+              ) : '—'}
             </span>
           </div>
         </div>
+        <Button
+          variant='ghost'
+          size='icon-sm'
+          onClick={handleWatchToggle}
+          aria-label={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+        >
+          <Star className={`size-5 ${watched ? 'fill-primary text-primary' : ''}`} />
+        </Button>
       </div>
 
       {/* Chart */}
-      <div className='bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 p-3'>
-        <div className='flex gap-2 mb-3'>
-          {DAYS_OPTIONS.map((opt) => (
-            <button
-              key={opt.days}
-              type='button'
-              onClick={() => setDays(opt.days)}
-              className={cn(
-                'px-3 py-1 text-xs rounded-full transition-colors',
-                days === opt.days
-                  ? 'bg-cyan-600 text-white'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700',
-              )}
-            >
-              {opt.label}
-            </button>
-          ))}
+      <div className='-mx-4'>
+        <div className='h-64'>
+          {chartLoading ? (
+            <div className='h-full bg-muted/30 mx-4 rounded-lg animate-pulse' />
+          ) : chart ? (
+            <PriceChart data={chart.prices} days={Number(days)} height={256} />
+          ) : null}
         </div>
-        {chartLoading ? (
-          <div className='h-48 bg-slate-100 dark:bg-slate-800 rounded animate-pulse' />
-        ) : chart ? (
-          <PriceChart data={chart.prices} days={days} />
-        ) : null}
+
+        <div className='px-4 mt-3'>
+          <Tabs value={days} onValueChange={setDays}>
+            <TabsList className='grid grid-cols-4 w-full'>
+              {DAYS.map((opt) => (
+                <TabsTrigger key={opt.days} value={String(opt.days)}>
+                  {opt.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
+        </div>
       </div>
 
       {/* Stats */}
-      <div className='grid grid-cols-2 gap-3'>
-        <Stat label='Market Cap' value={formatMarketCap(coin.market_data.market_cap.zar)} />
-        <Stat label='24h Change' value={formatPercent(change24h)} valueClass={change24h && change24h >= 0 ? 'text-green-500' : 'text-red-500'} />
-        <Stat label='7d Change' value={formatPercent(coin.market_data.price_change_percentage_7d)} />
-        <Stat label='30d Change' value={formatPercent(coin.market_data.price_change_percentage_30d)} />
-        <Stat label='All-Time High' value={formatZar(ath)} />
-        <Stat label='ATH Date' value={athDate ? new Date(athDate).toLocaleDateString('en-ZA') : '—'} />
+      <div className='px-4'>
+        <Card>
+          <CardContent className='p-4'>
+            <div className='grid grid-cols-2 gap-x-4'>
+              <StatRow label='Market Cap' value={formatMarketCap(coin.market_data.market_cap.zar)} />
+              <StatRow label='24h Change' value={formatPercent(change24h)} valueClass={isUp ? 'text-gain' : 'text-loss'} />
+              <StatRow label='7d Change' value={formatPercent(coin.market_data.price_change_percentage_7d)} />
+              <StatRow label='30d Change' value={formatPercent(coin.market_data.price_change_percentage_30d)} />
+              <StatRow label='All-Time High' value={formatZar(ath)} />
+              <StatRow label='ATH Date' value={athDate ? new Date(athDate).toLocaleDateString('en-ZA') : '—'} />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Categories */}
       {coin.categories.length > 0 && (
-        <div className='flex flex-wrap gap-1'>
-          {coin.categories.map((cat) => (
-            <span key={cat} className='px-2 py-0.5 text-xs rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500'>
+        <div className='px-4 flex flex-wrap gap-1.5'>
+          {coin.categories.slice(0, 5).map((cat) => (
+            <Badge key={cat} variant='secondary'>
               {cat}
-            </span>
+            </Badge>
           ))}
+          {coin.categories.length > 5 && (
+            <Badge variant='secondary'>+{coin.categories.length - 5}</Badge>
+          )}
         </div>
       )}
 
       {/* Description */}
       {coin.description.en && (
-        <div
-          className='text-sm text-slate-600 dark:text-slate-400 leading-relaxed [&_a]:text-cyan-600'
-          // Server-rendered safe HTML — sanitized by DOMPurify during build or CMS input
-          dangerouslySetInnerHTML={{
-            __html: coin.description.en.slice(0, 500),
-          }}
-        />
+        <div className='px-4'>
+          <div
+            className={`text-sm text-muted-foreground leading-relaxed [&_a]:text-primary [&_a]:underline prose-sm ${
+              showFullDesc ? '' : 'line-clamp-4'
+            }`}
+            dangerouslySetInnerHTML={{
+              __html: coin.description.en,
+            }}
+          />
+          {coin.description.en.length > 300 && (
+            <Button
+              variant='ghost'
+              size='sm'
+              className='mt-1'
+              onClick={() => setShowFullDesc(!showFullDesc)}
+            >
+              {showFullDesc ? 'Show less' : 'Read more'}
+            </Button>
+          )}
+        </div>
       )}
     </div>
   )
 }
 
-function Stat({
+function StatRow({
   label,
   value,
   valueClass,
@@ -155,9 +204,9 @@ function Stat({
   valueClass?: string
 }) {
   return (
-    <div className='bg-slate-50 dark:bg-slate-800/50 rounded-lg p-3'>
-      <p className='text-xs text-slate-500 mb-1'>{label}</p>
-      <p className={cn('font-semibold text-sm', valueClass)}>{value}</p>
+    <div className='flex items-center justify-between py-2.5 border-b border-border last:border-b-0'>
+      <span className='text-sm text-muted-foreground'>{label}</span>
+      <span className={`text-sm font-medium tabular-nums ${valueClass ?? ''}`}>{value}</span>
     </div>
   )
 }

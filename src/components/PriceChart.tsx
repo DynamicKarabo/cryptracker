@@ -4,9 +4,10 @@ import { createChart, type IChartApi, type ISeriesApi, ColorType, LineStyle } fr
 interface PriceChartProps {
   data: [number, number][]
   days: number
+  height?: number
 }
 
-export function PriceChart({ data, days }: PriceChartProps) {
+export function PriceChart({ data, days, height = 280 }: PriceChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
   const seriesRef = useRef<ISeriesApi<'Line'> | null>(null)
@@ -14,30 +15,33 @@ export function PriceChart({ data, days }: PriceChartProps) {
   useEffect(() => {
     if (!containerRef.current || data.length === 0) return
 
-    const isDark = document.documentElement.classList.contains('dark') ||
-      window.matchMedia('(prefers-color-scheme: dark)').matches
+    const isDark = document.documentElement.classList.contains('dark')
+    const startPrice = data[0]?.[1] ?? 0
+    const endPrice = data[data.length - 1]?.[1] ?? 0
+    const lineColor = endPrice >= startPrice ? '#16a34a' : '#dc2626'
 
     const chart = createChart(containerRef.current, {
       width: containerRef.current.clientWidth,
-      height: 280,
+      height,
       layout: {
         background: { type: ColorType.Solid, color: 'transparent' },
         textColor: isDark ? '#94a3b8' : '#64748b',
       },
       grid: {
-        vertLines: { color: isDark ? '#1e293b' : '#f1f5f9' },
+        vertLines: { visible: false },
         horzLines: { color: isDark ? '#1e293b' : '#f1f5f9' },
       },
       rightPriceScale: {
-        borderColor: isDark ? '#334155' : '#e2e8f0',
+        borderColor: 'transparent',
+        scaleMargins: { top: 0.05, bottom: 0.05 },
       },
       timeScale: {
-        borderColor: isDark ? '#334155' : '#e2e8f0',
+        borderColor: 'transparent',
         timeVisible: days <= 1,
         tickMarkFormatter: (time: number) => {
           const d = new Date(time * 1000)
           if (days <= 1) return d.toLocaleTimeString('en-ZA', { hour: '2-digit', minute: '2-digit' })
-          if (days <= 7) return d.toLocaleDateString('en-ZA', { weekday: 'short', day: 'numeric' })
+          if (days <= 7) return d.toLocaleDateString('en-ZA', { weekday: 'short' })
           return d.toLocaleDateString('en-ZA', { day: 'numeric', month: 'short' })
         },
       },
@@ -45,23 +49,27 @@ export function PriceChart({ data, days }: PriceChartProps) {
         vertLine: {
           style: LineStyle.Dashed,
           width: 1,
-          color: isDark ? '#64748b' : '#94a3b8',
-          labelBackgroundColor: '#0891b2',
+          color: isDark ? '#475569' : '#94a3b8',
+          labelBackgroundColor: lineColor,
         },
         horzLine: {
           style: LineStyle.Dashed,
           width: 1,
-          color: isDark ? '#64748b' : '#94a3b8',
-          labelBackgroundColor: '#0891b2',
+          color: isDark ? '#475569' : '#94a3b8',
+          labelBackgroundColor: lineColor,
         },
       },
+      handleScroll: false,
+      handleScale: false,
     })
 
     const series = chart.addLineSeries({
-      color: '#0891b2',
+      color: lineColor,
       lineWidth: 2,
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 4,
+      crosshairMarkerBorderColor: lineColor,
+      crosshairMarkerBackgroundColor: isDark ? '#0f172a' : '#ffffff',
       priceFormat: {
         type: 'price',
         precision: 2,
@@ -90,7 +98,7 @@ export function PriceChart({ data, days }: PriceChartProps) {
       window.removeEventListener('resize', handleResize)
       chart.remove()
     }
-  }, [data, days])
+  }, [data, days, height])
 
-  return <div ref={containerRef} className='w-full' />
+  return <div ref={containerRef} className='w-full h-full' />
 }

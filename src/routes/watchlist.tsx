@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react'
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getMarketsByIds } from '@/lib/api'
-import { formatZar, formatPercent, cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Star, Search } from 'lucide-react'
+import { CoinRow, CoinRowSkeleton } from '@/components/CoinRow'
 
 export const Route = createFileRoute('/watchlist')({
   component: Watchlist,
@@ -38,71 +40,60 @@ function Watchlist() {
     staleTime: 60_000,
   })
 
-  const handleToggle = (id: string) => {
+  const handleRemove = (id: string) => {
     const next = toggleWatchlist(id)
     setIds(next)
   }
 
-  return (
-    <div className='p-4 max-w-lg mx-auto'>
-      <header className='flex items-center justify-between mb-4'>
-        <Link to='/' className='text-sm text-cyan-600 hover:underline'>
-          &larr; Home
-        </Link>
-        <h1 className='text-lg font-bold'>Watchlist</h1>
-        <Link to='/browse' className='text-sm text-cyan-600 hover:underline'>
-          Browse
-        </Link>
-      </header>
-
-      {ids.length === 0 ? (
-        <div className='text-center py-12'>
-          <p className='text-slate-500'>No watched coins</p>
-          <Link to='/browse' className='text-sm text-cyan-600 hover:underline mt-2 inline-block'>
-            Browse coins to add some
+  // Empty state
+  if (ids.length === 0) {
+    return (
+      <div className='flex flex-col items-center justify-center py-20 px-4 text-center'>
+        <Star className='size-10 text-muted-foreground mb-4' />
+        <p className='text-base font-medium mb-1'>No watched coins</p>
+        <p className='text-sm text-muted-foreground mb-6'>
+          Tap the star on any coin to track it here
+        </p>
+        <Button asChild>
+          <Link to='/browse'>
+            <Search className='size-4 mr-2' />
+            Browse coins
           </Link>
-        </div>
-      ) : isLoading ? (
-        <div className='space-y-2'>
+        </Button>
+      </div>
+    )
+  }
+
+  return (
+    <div className='py-4'>
+      {isLoading ? (
+        <div className='divide-y divide-border'>
           {ids.map((id) => (
-            <div key={id} className='h-14 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse' />
+            <CoinRowSkeleton key={id} />
           ))}
         </div>
       ) : (
-        <div className='space-y-1'>
+        <div className='divide-y divide-border'>
           {coins?.map((coin) => (
-            <div className='flex items-center gap-3 p-2 rounded-lg group'>
-              <Link
-                key={coin.id}
-                to='/coin/$id'
-                params={{ id: coin.id }}
-                className='flex items-center gap-3 flex-1 min-w-0'
-              >
-                <img src={coin.image} alt='' className='w-8 h-8 rounded-full' />
-                <div className='flex-1 min-w-0'>
-                  <p className='font-medium text-sm truncate'>{coin.name}</p>
-                  <p className='text-xs text-slate-400 uppercase'>{coin.symbol}</p>
-                </div>
-                <div className='text-right'>
-                  <p className='font-medium text-sm'>{formatZar(coin.current_price)}</p>
-                  <p
-                    className={cn(
-                      'text-xs',
-                      (coin.price_change_percentage_24h ?? 0) >= 0 ? 'text-green-500' : 'text-red-500',
-                    )}
-                  >
-                    {formatPercent(coin.price_change_percentage_24h)}
-                  </p>
-                </div>
-              </Link>
-              <button
-                type='button'
-                onClick={() => handleToggle(coin.id)}
-                className='text-xs text-red-400 opacity-0 group-hover:opacity-100 transition-opacity'
-              >
-                Remove
-              </button>
-            </div>
+            <CoinRow
+              key={coin.id}
+              coin={coin}
+              trailing={
+                <Button
+                  variant='ghost'
+                  size='icon-xs'
+                  onClick={(e: React.MouseEvent) => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    handleRemove(coin.id)
+                  }}
+                  aria-label={`Remove ${coin.name} from watchlist`}
+                  className='text-muted-foreground hover:text-loss shrink-0'
+                >
+                  <Star className='size-4 fill-primary text-primary' />
+                </Button>
+              }
+            />
           ))}
         </div>
       )}

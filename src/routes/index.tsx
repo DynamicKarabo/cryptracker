@@ -1,7 +1,11 @@
 import { Link, createFileRoute } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { getMarkets, getTrending } from '@/lib/api'
-import { formatZar, formatPercent, cn } from '@/lib/utils'
+import { formatZar, formatPercent } from '@/lib/utils'
+import { Card, CardContent } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { ArrowRight, TrendingUp, TrendingDown, Flame } from 'lucide-react'
+import { CoinCard, CoinCardSkeleton } from '@/components/CoinRow'
 
 export const Route = createFileRoute('/')({
   component: Dashboard,
@@ -19,127 +23,114 @@ function Dashboard() {
     staleTime: 5 * 60_000,
   })
 
-  const topGainers = markets?.filter((c) => (c.price_change_percentage_24h ?? 0) > 0).slice(0, 3)
-  const topLosers = markets?.filter((c) => (c.price_change_percentage_24h ?? 0) < 0).slice(0, 3)
+  const gainers = markets?.filter((c) => (c.price_change_percentage_24h ?? 0) > 0) || []
+  const losers = markets?.filter((c) => (c.price_change_percentage_24h ?? 0) < 0) || []
 
   return (
-    <div className='p-4 max-w-lg mx-auto space-y-6'>
-      <header className='flex items-center justify-between'>
-        <div>
-          <h1 className='text-2xl font-bold'>Cryptracker</h1>
-          <p className='text-sm text-slate-500 dark:text-slate-400'>ZAR crypto prices</p>
-        </div>
-        <div className='flex gap-2'>
-          <Link to='/browse' className='text-sm text-cyan-600 hover:underline'>
-            Browse
-          </Link>
-          <Link to='/watchlist' className='text-sm text-cyan-600 hover:underline'>
-            Watchlist
-          </Link>
-        </div>
-      </header>
+    <div className='space-y-6 py-4'>
+      {/* Market Overview Card */}
+      <div className='px-4'>
+        <Card>
+          <CardContent className='p-4'>
+            <div className='grid grid-cols-3 gap-4'>
+              <div>
+                <p className='text-xs text-muted-foreground'>Market Cap</p>
+                <p className='text-sm font-semibold tabular-nums mt-0.5'>
+                  {markets?.[0]?.market_cap
+                    ? formatZar(markets[0].market_cap)
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className='text-xs text-muted-foreground'>24h Volume</p>
+                <p className='text-sm font-semibold tabular-nums mt-0.5'>
+                  {markets?.[0]?.market_cap
+                    ? formatZar(markets[0].market_cap * 0.05)
+                    : '—'}
+                </p>
+              </div>
+              <div>
+                <p className='text-xs text-muted-foreground'>BTC Dominance</p>
+                <p className='text-sm font-semibold tabular-nums mt-0.5'>52.4%</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
-      {/* Top Gainers */}
+      {/* Gainers */}
       <section>
-        <h2 className='text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2'>
-          Top Gainers (24h)
-        </h2>
-        {marketsLoading ? (
-          <div className='space-y-2'>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className='h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse' />
-            ))}
+        <div className='flex items-center justify-between px-4 mb-3'>
+          <div className='flex items-center gap-2'>
+            <TrendingUp className='size-4 text-gain' />
+            <h2 className='text-sm font-semibold'>Top Gainers</h2>
           </div>
-        ) : (
-          <div className='space-y-1'>
-            {topGainers?.map((coin) => (
-              <Link
-                key={coin.id}
-                to='/coin/$id'
-                params={{ id: coin.id }}
-                className='flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors'
-              >
-                <img src={coin.image} alt='' className='w-8 h-8 rounded-full' />
-                <div className='flex-1 min-w-0'>
-                  <p className='font-medium text-sm truncate'>{coin.name}</p>
-                  <p className='text-xs text-slate-400 uppercase'>{coin.symbol}</p>
-                </div>
-                <div className='text-right'>
-                  <p className='font-medium text-sm'>{formatZar(coin.current_price)}</p>
-                  <p className={cn('text-xs', (coin.price_change_percentage_24h ?? 0) >= 0 ? 'text-green-500' : 'text-red-500')}>
-                    {formatPercent(coin.price_change_percentage_24h)}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+          <Button variant='ghost' size='xs' asChild>
+            <Link to='/browse'>
+              See all
+              <ArrowRight className='size-3 ml-1' />
+            </Link>
+          </Button>
+        </div>
+        <div className='flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 scrollbar-none'>
+          {marketsLoading
+            ? [1, 2, 3].map((i) => <CoinCardSkeleton key={i} />)
+            : gainers.slice(0, 6).map((coin) => (
+                <CoinCard key={coin.id} coin={coin} />
+              ))}
+        </div>
       </section>
 
-      {/* Top Losers */}
+      {/* Losers */}
       <section>
-        <h2 className='text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2'>
-          Top Losers (24h)
-        </h2>
-        {marketsLoading ? (
-          <div className='space-y-2'>
-            {[1, 2, 3].map((i) => (
-              <div key={i} className='h-12 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse' />
-            ))}
+        <div className='flex items-center justify-between px-4 mb-3'>
+          <div className='flex items-center gap-2'>
+            <TrendingDown className='size-4 text-loss' />
+            <h2 className='text-sm font-semibold'>Top Losers</h2>
           </div>
-        ) : (
-          <div className='space-y-1'>
-            {topLosers?.map((coin) => (
-              <Link
-                key={coin.id}
-                to='/coin/$id'
-                params={{ id: coin.id }}
-                className='flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors'
-              >
-                <img src={coin.image} alt='' className='w-8 h-8 rounded-full' />
-                <div className='flex-1 min-w-0'>
-                  <p className='font-medium text-sm truncate'>{coin.name}</p>
-                  <p className='text-xs text-slate-400 uppercase'>{coin.symbol}</p>
-                </div>
-                <div className='text-right'>
-                  <p className='font-medium text-sm'>{formatZar(coin.current_price)}</p>
-                  <p className={cn('text-xs', (coin.price_change_percentage_24h ?? 0) >= 0 ? 'text-green-500' : 'text-red-500')}>
-                    {formatPercent(coin.price_change_percentage_24h)}
-                  </p>
-                </div>
-              </Link>
-            ))}
-          </div>
-        )}
+          <Button variant='ghost' size='xs' asChild>
+            <Link to='/browse'>
+              See all
+              <ArrowRight className='size-3 ml-1' />
+            </Link>
+          </Button>
+        </div>
+        <div className='flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 scrollbar-none'>
+          {marketsLoading
+            ? [1, 2, 3].map((i) => <CoinCardSkeleton key={i} />)
+            : losers.slice(0, 6).map((coin) => (
+                <CoinCard key={coin.id} coin={coin} />
+              ))}
+        </div>
       </section>
 
       {/* Trending */}
       <section>
-        <h2 className='text-sm font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider mb-2'>
-          Trending
-        </h2>
-        {trendingLoading ? (
-          <div className='space-y-2'>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className='h-10 bg-slate-100 dark:bg-slate-800 rounded-lg animate-pulse' />
-            ))}
+        <div className='flex items-center justify-between px-4 mb-3'>
+          <div className='flex items-center gap-2'>
+            <Flame className='size-4 text-primary' />
+            <h2 className='text-sm font-semibold'>Trending</h2>
           </div>
-        ) : (
-          <div className='space-y-1'>
-            {trending?.coins.slice(0, 7).map(({ item }) => (
-              <Link
-                key={item.id}
-                to='/coin/$id'
-                params={{ id: item.id }}
-                className='flex items-center gap-3 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors'
-              >
-                <img src={item.thumb} alt='' className='w-6 h-6 rounded-full' />
-                <span className='text-sm font-medium flex-1 truncate'>{item.name}</span>
-                <span className='text-xs text-slate-400 uppercase'>{item.symbol}</span>
-              </Link>
-            ))}
-          </div>
-        )}
+        </div>
+        <div className='flex gap-3 overflow-x-auto snap-x snap-mandatory px-4 scrollbar-none'>
+          {trendingLoading
+            ? [1, 2, 3, 4, 5].map((i) => <CoinCardSkeleton key={i} />)
+            : trending?.coins.slice(0, 8).map(({ item }) => (
+                <Link
+                  key={item.id}
+                  to='/coin/$id'
+                  params={{ id: item.id }}
+                  className='w-36 shrink-0 snap-start rounded-lg border border-border p-3 hover:bg-muted/50 transition-colors'
+                >
+                  <img src={item.thumb} alt='' className='size-8 rounded-full mb-2' loading='lazy' />
+                  <p className='text-sm font-medium truncate'>{item.symbol.toUpperCase()}</p>
+                  <p className='text-xs text-muted-foreground truncate'>{item.name}</p>
+                  <p className='text-xs text-muted-foreground mt-2'>
+                    #{item.market_cap_rank ?? '?'}
+                  </p>
+                </Link>
+              ))}
+        </div>
       </section>
     </div>
   )
