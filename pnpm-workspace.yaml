@@ -1,0 +1,5 @@
+allowBuilds:
+  esbuild: true
+  '@tailwindcss/oxide': true
+minimumReleaseAgeExclude:
+  - dompurify@3.4.9
