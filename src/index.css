@@ -57,7 +57,6 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Gold/amber primary */
   --primary: oklch(0.65 0.13 75);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.97 0 0);
@@ -93,7 +92,6 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* Gold/amber primary — lighter in dark mode */
   --primary: oklch(0.78 0.14 80);
   --primary-foreground: oklch(0.145 0 0);
   --secondary: oklch(0.269 0 0);
@@ -125,10 +123,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    @apply bg-background font-sans;
+    overscroll-behavior-y: contain;
+    -webkit-tap-highlight-color: transparent;
+  }
   body {
     @apply bg-background text-foreground;
-  }
-  html {
-    @apply font-sans;
+    min-height: 100dvh;
+    font-variant-numeric: tabular-nums;
   }
 }
